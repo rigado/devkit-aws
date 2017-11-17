@@ -1,0 +1,166 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API Gateway backed by lambda functions to read/write sensor data to DynamoDB and update an S3 bucket
+Outputs:
+    ApiURL:
+      Description: "Use this endpoint in your Node-Red flow to start storing data in your AWS accont"
+      Value:
+        Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: ServerlessRestApi
+          - ".execute-api."
+          - Ref: AWS::Region
+          - ".amazonaws.com/"
+          - Ref: ServerlessRestApiProdStage
+          - "/datapoint"
+    DashboardURL:
+      Description: "Open this URL to view your DevKit Dashboard"
+      Value:
+        Fn::Join:
+        - ""
+        - - "http://"
+          - Ref: Bucket
+          - ".s3-website-"
+          - Ref: AWS::Region
+          - ".amazonaws.com/"
+
+Resources:
+  GetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.get
+      Runtime: nodejs6.10
+      Description: "Fetches datapoints from DynamoDB"
+      CodeUri: ./package/api_backend.zip
+      Policies:
+        -
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - "s3:*"
+              Resource:
+                - !Join [ "/", [!GetAtt Bucket.Arn, "*"]]
+                - !GetAtt Bucket.Arn
+            -
+              Effect: "Allow"
+              Action:
+                - "dynamodb:*"
+              Resource: !GetAtt Table.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /datapoints
+            Method: get
+
+  PostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.post
+      Runtime: nodejs6.10
+      Description: "Writes datapoints to DynamoDB"
+      CodeUri: ./package/api_backend.zip
+      Policies:
+        -
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action:
+                - "s3:*"
+              Resource:
+                - !Join [ "/", [!GetAtt Bucket.Arn, "*"]]
+                - !GetAtt Bucket.Arn
+            -
+              Effect: "Allow"
+              Action:
+                - "dynamodb:*"
+              Resource: !GetAtt Table.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+      Events:
+        PutResource:
+          Type: Api
+          Properties:
+            Path: /datapoint
+            Method: post
+  Table:
+    Type: AWS::Serverless::SimpleTable
+  PopulateBucketFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - ServerlessRestApi
+      - ServerlessRestApiProdStage
+    Properties:
+      Handler: index.populator
+      Runtime: nodejs6.10
+      Timeout: 30
+      Description: "Sets up and updates dashboard S3 bucket"
+      CodeUri: ./package/api_backend.zip
+      Policies:
+        -
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Action: "s3:*"
+              Resource:
+                - !Join
+                  - '/'
+                  - - !GetAtt Bucket.Arn
+                    - "*"
+                - !GetAtt Bucket.Arn
+            -
+              Effect: "Allow"
+
+              Action: "dynamodb:*"
+              Resource: !GetAtt Table.Arn
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref Bucket
+          TABLE_NAME: !Ref Table
+          API_ENDPOINT:
+            Fn::Join:
+              - ""
+              - - "https://"
+                - Ref: ServerlessRestApi
+                - ".execute-api."
+                - Ref: AWS::Region
+                - ".amazonaws.com/"
+                - Ref: ServerlessRestApiProdStage
+                - "/datapoints"
+
+  ScheduledRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "ScheduledRule"
+      ScheduleExpression: "rate(5 minutes)"
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt PopulateBucketFunction.Arn
+          Id: "TargetFunctionV1"
+  PermissionForEventsToInvokeLambda:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Ref: "PopulateBucketFunction"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn:
+        Fn::GetAtt:
+          - "ScheduledRule"
+          - "Arn"
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html

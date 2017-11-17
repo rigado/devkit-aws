@@ -1,0 +1,77 @@
+{
+	"version": 1,
+	"allow_edit": true,
+	"plugins": [],
+	"panes": [
+		{
+			"title": "Accelerometer Data",
+			"width": 1,
+			"row": {
+				"3": 1
+			},
+			"col": {
+				"3": 3
+			},
+			"col_width": "1",
+			"widgets": [
+				{
+					"type": "highcharts-timeseries",
+					"settings": {
+						"timeframe": 60,
+						"blocks": 4,
+						"chartType": "area",
+						"xaxis": "{\"title\":{\"text\" : \"Time\"}, \"type\": \"datetime\", \"floor\":0}",
+						"yaxis": "{\"title\":{\"text\" : \"Accelerometer\"}, \"minorTickInterval\":\"auto\", \"floor\":0}",
+						"series1": "datasources[\"AWS\"][\"foo5678\"][\"datapoint\"]",
+						"series1label": "foo5678"
+					}
+				},
+				{
+					"type": "highcharts-timeseries",
+					"settings": {
+						"timeframe": 60,
+						"blocks": 4,
+						"chartType": "area",
+						"xaxis": "{\"title\":{\"text\" : \"Time\"}, \"type\": \"datetime\", \"floor\":0}",
+						"yaxis": "{\"title\":{\"text\" : \"Accelerometer\"}, \"minorTickInterval\":\"auto\", \"floor\":0}",
+						"series1": "datasources[\"AWS\"][\"foo1234\"][\"datapoint\"]",
+						"series1label": "foo1234"
+					}
+				}
+			]
+		},
+		{
+			"title": "Devices",
+			"width": 1,
+			"row": {
+				"3": 1
+			},
+			"col": {
+				"3": 1
+			},
+			"col_width": "2",
+			"widgets": [
+				{
+					"type": "html",
+					"settings": {
+						"html": "html = \"<div style='padding: 10px;'><table class='devicelist'><tr><th>Device ID</th><th>Last push to AWS</th></tr>\";\nObject.keys(datasources[\"AWS\"]).map(function(x) {\n    html += \"<tr>\";\n\thtml += \"<td>\" + x + \"</td>\";\n    html += \"<td>\" + new Date(datasources[\"AWS\"][x][\"timestamp\"]).toString() + \"</td>\";\n    html += \"</tr>\"\n});\nhtml += \"</table>\"\nreturn html;",
+						"height": 4
+					}
+				}
+			]
+		}
+	],
+	"datasources": [
+		{
+			"name": "AWS",
+			"type": "JSON",
+			"settings": {
+				"url": "https://staug8zev0.execute-api.us-west-2.amazonaws.com/prod/datapoints",
+				"use_thingproxy": true,
+				"refresh": 5,
+				"method": "GET"
+			}
+		}
+	],
+	"columns": 3
+}

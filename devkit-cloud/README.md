@@ -1,0 +1,1 @@
+Refer to the AWS SAM documentation here: [https://github.com/awslabs/serverless-application-model/blob/master/HOWTO.md](https://github.com/awslabs/serverless-application-model/blob/master/HOWTO.md)
